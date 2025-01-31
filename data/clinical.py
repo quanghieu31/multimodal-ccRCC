@@ -13,7 +13,7 @@ import pandas as pd
 import numpy as np
 from sklearn.preprocessing import OrdinalEncoder, LabelEncoder
 
-
+# BEWARE: the GDC APIs can change the data formats
 
 def queryBuilder(endpoint, filters, fields, size, frmat):
     api_url = 'https://api.gdc.cancer.gov/'
