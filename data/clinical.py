@@ -73,7 +73,7 @@ def clean_metadata_clinical(file_name = config["clinical_path"]["raw_clinical"])
         if row["demographic.vital_status"] == "Dead"
         else row["diagnoses.0.days_to_last_follow_up"],
         axis=1,)
-    df["time"] = df["time"].astype("uint16") # save memory usage in range 0 to 65535
+    df["time"] = df["time"].astype("int32") # save memory usage in range 0 to 65535
     df = df.rename(columns={"demographic.vital_status": "event"})
     df["event"] = df["event"].apply(lambda x: 1 if x=="Dead" else 0).astype("int8")
     # remove the other date columns
@@ -119,6 +119,17 @@ def encode_categorical(df):
 
 
 
+def filter_267_subjects(df):
+    """filter the cleaned df based on subjects with available CT scans"""
+
+    ct = pd.read_csv(config["ct_scans"]["subjects_ct_scans"])
+    ct_patients = ct["Subject ID"].unique()
+    df = df[df["submitter_id"].isin(ct_patients)]
+    print(df.shape[0], "patients")
+    print(df["event"].value_counts())
+    return df
+
+
 
 if __name__ == "__main__":
 
@@ -129,3 +140,8 @@ if __name__ == "__main__":
 
     df.to_csv(output_clinical_cleaned, index=False)
     print(f"Successfully wrote {output_clinical_cleaned} file \nFile exists? {os.path.isfile(output_clinical_cleaned)}")
+
+    output_clinical_cleaned_267 = config["clinical_path"]["cleaned_clinical_267"]
+    df_267 = filter_267_subjects(df)
+    df.to_csv(output_clinical_cleaned_267, index=False)
+    print(f"Successfully wrote {output_clinical_cleaned_267} file \nFile exists? {os.path.isfile(output_clinical_cleaned_267)}")
