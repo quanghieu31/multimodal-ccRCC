@@ -1,0 +1,1 @@
+# download then tile the WSI images immediately
