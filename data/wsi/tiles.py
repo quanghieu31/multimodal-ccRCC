@@ -1,3 +1,9 @@
+from tqdm import tqdm
+import openslide
+
+
+
+
 def tile_slide(
     in_svs: str,
     target_size: int = 256,
