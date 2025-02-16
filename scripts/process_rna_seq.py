@@ -23,7 +23,7 @@ files_endpt = "https://api.gdc.cancer.gov/files" # file metadata only
 data_endpt = "https://api.gdc.cancer.gov/data" # actualy data download (files downloaded)
 suffix = "rna_seq.augmented_star_gene_counts.tsv"
 
-data_folder = config["genomics_data"]["rna_seq_count_path"]
+data_folder = config["genomics"]["rna_seq_count"]
 os.makedirs(data_folder, exist_ok=True)
 
 filters = {
