@@ -206,11 +206,17 @@ def extract_features_from_all_patches(dataloader, model_name="resnet18", device=
 if __name__ == "__main__":
 
     # NOTE CONFIGS:
-    with open(config["case_ids"]["case_ids"], "r") as file:
-        case_ids = [line.strip() for line in file]
 
-    selected_cases_to_download = case_ids[180:200] # TODO: just run this immediately
+    with open(config["case_ids"]["full_case_ids"], "r") as file:
+        full_case_ids = [line.strip() for line in file]
+
+    current = os.listdir(r"D:\data\wsi_slides")
+    undone_case_ids = [c for c in full_case_ids if c not in current]
+
+
+    selected_cases_to_download = undone_case_ids[0:10] # TODO: just run this immediately
     
+
     cases_with_big_tumors = [] # visual later, need to find some # TODO to save the original svs files and patch pngs
     cases_without_slides = []
     num_slides = 5
