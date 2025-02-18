@@ -43,6 +43,7 @@ random.seed(0)
 num_patches = 1000  # arbitrary, #TODO
 patch_size = 500   # patch size at 20X
 
+
 # this loop iterates over the SVS files in the examples_2_patient folder
 # and then extracts patches from the tissue mask of each slide
 
@@ -214,7 +215,7 @@ if __name__ == "__main__":
     undone_case_ids = [c for c in full_case_ids if c not in current]
 
 
-    selected_cases_to_download = undone_case_ids[0:10] # TODO: just run this immediately
+    selected_cases_to_download = undone_case_ids[0:20] # TODO: just run this immediately
     
 
     cases_with_big_tumors = [] # visual later, need to find some # TODO to save the original svs files and patch pngs
