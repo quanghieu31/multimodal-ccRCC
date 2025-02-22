@@ -214,16 +214,12 @@ if __name__ == "__main__":
     current = os.listdir(r"D:\data\wsi_slides")
     undone_case_ids = [c for c in full_case_ids if c not in current]
 
-
-    selected_cases_to_download = undone_case_ids[0:20] # TODO: just run this immediately
-    
-
     cases_with_big_tumors = [] # visual later, need to find some # TODO to save the original svs files and patch pngs
     cases_without_slides = []
     num_slides = 5
 
 
-    for case in selected_cases_to_download:
+    for case in undone_case_ids:
 
         case_dir = config["wsi"]["wsi_slides"] + case
         os.makedirs(case_dir, exist_ok=True)
