@@ -35,6 +35,25 @@ import math
 from sklearn.cluster import KMeans
 
 
+
+####################################################################################################
+###### CLINICAL UTILS FUNCTIONS ####################################################################
+
+def filter_267_subjects(df):
+    """filter the cleaned df based on subjects with available CT scans"""
+    ct = pd.read_csv(config["ct"]["subjects_ct_scans"])
+    ct_patients = ct["Subject ID"].unique()
+    df = df[df["submitter_id"].isin(ct_patients)]
+    print(df.shape[0], "patients")
+    print(df["event"].value_counts())
+    output_clinical_cleaned_267 = config["clinical"]["cleaned_clinical_267"]
+    df.to_csv(output_clinical_cleaned_267, index=False)
+filter_267_subjects(pd.read_csv(clinical_path))
+
+
+
+
+
 ####################################################################################################
 ########################### WSI UTILS FUNCTIONS ####################################################
 ####################################################################################################
