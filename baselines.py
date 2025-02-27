@@ -27,18 +27,20 @@ np.random.seed(0)
 
 def baseline_clinical():
     print("CLINICAL BASELINE...")
-    clinical_path = config["clinical"]["cleaned_clinical"]
+    clinical_path = config["clinical"]["cleaned_clinical_json"]
     clinical = pd.read_csv(clinical_path)
 
-    # choose 3 decided features
-    clinical = clinical[["gender", "age_diagnosis", "ajcc_stage", "event", "time"]]
+    # drop submitter_id
+    clinical = clinical.drop(["submitter_id"], axis=1)
 
     # split the data
     train = clinical.sample(frac=0.8, random_state=123)
     test = clinical.drop(train.index)
 
     # fit the model, no need for regularization because no.features are small
-    clinical_coxph = CoxPHFitter()
+    clinical_coxph = CoxPHFitter(penalizer=0.01)
+    # why need penalizer here? apply l2 regularization to help in cases of high collinearity due to sparsity in the one-hot encoding features
+    # READ: https://lifelines.readthedocs.io/en/latest/Examples.html#problems-with-convergence-in-the-cox-proportional-hazard-model 
     clinical_coxph.fit(train, duration_col="time", event_col="event")
     print("Clinical baseline model coefficients:")
     clinical_coxph.print_summary()
@@ -101,12 +103,10 @@ if __name__ == "__main__":
     
     c_index_baseline_clinical = baseline_clinical()
 
-
-    c_index_results = pd.DataFrame(
-        {
-            "c-index_baseline_clinical": c_index_baseline_clinical,
+    c_index_results = pd.DataFrame({
+            "c-index_baseline_clinical": [c_index_baseline_clinical],
             # TODO
         }
     )
 
-    df.to_csv("evaluation-results/c-index_results.csv", index=False)
+    c_index_results.to_csv("evaluation-results/c-index_results.csv", index=False)
