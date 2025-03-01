@@ -15,17 +15,22 @@ from sklearn.preprocessing import OrdinalEncoder, LabelEncoder
 
 # BEWARE: the GDC APIs can change the data formats
 # Make sure to either use the API or manually download the TCGA-KIRC's clinical json file from https://portal.gdc.cancer.gov/
-
+# the file should be named something like ""clinical.cohort.2025-02-26.json""
 
 SELECTED_COLS = [
+    "tumor_grade_last_diagnosis", # this and stage are less correlated with each other
     'ajcc_stage_last_diagnosis', 
-    'age_at_last_diagnosis',
-    'ajcc_t_tumorsize_last_diagnosis',
-    'submitter_id', 'gender', 'event', 'time'
+    #'ajcc_t_tumorsize_last_diagnosis',
+    'submitter_id', 'gender', 'age_at_last_diagnosis', 'event', 'time'
 ]
 
+CASES_WITH_RNA_DATA = set(pd.read_csv(config["rna"]["rna_metadata"])["case_id"].values)
 
 def process_one_item(one_item):
+
+    # four cases don't have rna-seq data, ignore these cases
+    if one_item["submitter_id"] not in CASES_WITH_RNA_DATA:
+        return None
 
     # collect stages and ages at last diagnosis
     diags_list = []
@@ -97,7 +102,7 @@ if __name__ == "__main__":
 
     # select features and convert to json
     print("selecting features and convert from json to csv file...")
-    list_dicts = [process_one_item(item) for item in raw_json]
+    list_dicts = [process_one_item(item) for item in raw_json if process_one_item(item)]
     df_json = pd.DataFrame(list_dicts)
     df_json.to_csv(config["clinical"]["converted_to_clinical_json"], index=False)
 

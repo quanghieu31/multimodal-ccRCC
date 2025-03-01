@@ -283,3 +283,27 @@ def display_cluster_and_original(patches_features):
         display_wsi(correspond_svs_path, level)
         display_clustering(correspond_svs_path, pf)
         print("==============================================================")
+
+
+
+####### Display kaplan-meier curve
+
+def display_km_curves(pred_risk, title_name, save_figure=False):
+    fig, ax = plt.subplots(figsize=(10,8))
+    kmf_high = KaplanMeierFitter()
+    kmf_low = KaplanMeierFitter()
+    high_risk_idx = pred_risk > np.median(pred_risk)
+    low_risk_idx = pred_risk <= np.median(pred_risk)
+    kmf_high.fit(test['time'][high_risk_idx], test['event'][high_risk_idx], label="High risk")
+    kmf_low.fit(test['time'][low_risk_idx], test['event'][low_risk_idx], label="Low risk")
+    kmf_high.plot(ax=ax, ci_show=True, show_censors=True)
+    kmf_low.plot(ax=ax, ci_show=True, show_censors=True)
+
+    ax.set_title(f"Kaplan-Meier curve for {title_name} baseline model")
+    ax.set_xlabel("Time")
+    ax.set_ylabel("Survival probability")
+    plt.legend()
+    if save_figure:
+        plt.savefig("evaluation-results/clinical-baseline.png")
+    else:
+        plt.show()

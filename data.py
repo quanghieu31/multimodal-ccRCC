@@ -1,14 +1,17 @@
 import torch
 from torch.utils.data import Dataset, DataLoader
-from torchvision.models import ResNet18_Weights
 
+import os
 import numpy as np
 import pandas as pd
+from sklearn.cluster import KMeans
 
 import configparser
 config = configparser.ConfigParser()
 config.read("config.ini")
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print(device)
 
 class PatientClinicalDataset(Dataset):
     """
@@ -19,21 +22,26 @@ class PatientClinicalDataset(Dataset):
         self.df = pd.read_csv(self.csv_file_path).drop(["time", "event"], axis=1)
 
     def __getitem__(self, idx):
-        patient = self.df.iloc[idx]
-        return patient
+        patient_series = self.df.iloc[idx]
+        return patient_series # includes the submitter_id!
 
     def __len__(self):
         return self.df.shape[0]
 
 
-
 class PatientRNASeqDataset(Dataset):
     """
-    currently still in tsv file, might want to think of better way?
+    a csv file, 534 rows and ~20000 columns for normalized RNA-seq counts
     """
-    # TODO
+    def __init__(self, rna_file_path):
+        self.rna_file_path = rna_file_path
+        self.df = pd.read_csv(self.rna_file_path)
+        self.df.set_index("submitter_id", inplace=True)
 
-
+    def __getitem__(self, case_id):
+        gene_expressions = list(self.df.loc[case_id])
+        tensor_gene_expressions = torch.tensor(gene_expressions, dtype=torch.float32).unsqueeze(0)
+        return tensor_gene_expressions # [1, 19962]
 
 
 class PatientWSIDataset(Dataset):
@@ -81,7 +89,6 @@ class PatientWSIDataset(Dataset):
 
 
 
-
 ## Fusion multimodal
 
 class MultimodalDataset(Dataset):
@@ -111,22 +118,28 @@ class MultimodalDataset(Dataset):
 
     def __getitem__(self, idx):
 
-        patient_time = torch.tensor(self.times[idx])
-        patient_event = torch.tensor(self.events[idx])
-
         # (1) start from clinical dataset
-        patient = self.clinical_dataset[idx]
-        case_id = patient["submitter_id"]
-        clinical_features = list(patient.drop(["submitter_id"]))
-        tensor_clinical_features = torch.tensor(clinical_features).unsqueeze(0) # add batch dim (1, 18) instead of (18)
+        patient_series = self.clinical_dataset[idx]
+        case_id = patient_series["submitter_id"]
+        clinical_features = list(patient_series.drop(["submitter_id"]))
+        tensor_clinical_features = torch.tensor(clinical_features, dtype=torch.float32).unsqueeze(0) 
+        # above: add batch dim (1, 18) instead of (18)
 
         # (2) grab the tensor for 20000 (processed) gene counts for that case id
-        tensor_rna_genes = self.rna_dataset[case_id]
+        tensor_rna_genes = self.rna_dataset[case_id] # (1, 19962)
 
         # (3) collect the list of phenotype tensor for that case id
-        list_of_phenotype_clusters = self.wsi_dataset[case_id]
+        list_of_phenotype_tensors = self.wsi_dataset[case_id]
 
-        return (tensor_clinical_features, tensor_rna_genes, list_of_phenotype_clusters,
-                self.labels_dict[submitter_id]["event"], self.labels_dict[submitter_id]["time"] # labels
+        # (4) labels
+        time = self.labels_dict[case_id]["time"]
+        event = self.labels_dict[case_id]["event"]
+
+        return (
+            tensor_clinical_features, 
+            tensor_rna_genes, 
+            list_of_phenotype_tensors,
+            time,
+            event
         )
 
