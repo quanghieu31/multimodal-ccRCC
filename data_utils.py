@@ -11,7 +11,6 @@ config = configparser.ConfigParser()
 config.read("config.ini")
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-print(device)
 
 class PatientClinicalDataset(Dataset):
     """
@@ -51,7 +50,7 @@ class PatientWSIDataset(Dataset):
     def __init__(self, wsi_dir):
 
         self.wsi_dir = wsi_dir
-        self.case_ids = list(LABELS_DF["submitter_id"].values)
+        self.case_ids = list(os.listdir(self.wsi_dir))
         self.dict_case_id_path = {
             c: os.path.join(self.wsi_dir, c) + "/patches_features.npy" for c in self.case_ids
         }
@@ -115,6 +114,8 @@ class MultimodalDataset(Dataset):
         for submitter_id, event, time in zip(self.LABELS_DF["submitter_id"], self.LABELS_DF["event"], self.LABELS_DF["time"]):
             self.labels_dict[submitter_id] = {"event": event, "time": time}
 
+    def __len__(self):
+        return len(self.clinical_dataset)
 
     def __getitem__(self, idx):
 
@@ -123,10 +124,14 @@ class MultimodalDataset(Dataset):
         case_id = patient_series["submitter_id"]
         clinical_features = list(patient_series.drop(["submitter_id"]))
         tensor_clinical_features = torch.tensor(clinical_features, dtype=torch.float32).unsqueeze(0) 
-        # above: add batch dim (1, 18) instead of (18)
+        # above: add batch dim (1, 13) instead of (13)
 
         # (2) grab the tensor for 20000 (processed) gene counts for that case id
         tensor_rna_genes = self.rna_dataset[case_id] # (1, 19962)
+
+        # (2.5) NOTE: to save time for this moment, I will concat the clinical and rna together 
+        # and build one feed-forward for the combined
+        tensor_clinical_rna = torch.cat((tensor_clinical_features, tensor_rna_genes), dim=1) # (1, 19975)
 
         # (3) collect the list of phenotype tensor for that case id
         list_of_phenotype_tensors = self.wsi_dataset[case_id]
@@ -136,10 +141,17 @@ class MultimodalDataset(Dataset):
         event = self.labels_dict[case_id]["event"]
 
         return (
-            tensor_clinical_features, 
-            tensor_rna_genes, 
+            tensor_clinical_rna,
             list_of_phenotype_tensors,
             time,
             event
         )
+
+        # return (
+        #     tensor_clinical_features, 
+        #     tensor_rna_genes, 
+        #     list_of_phenotype_tensors,
+        #     time,
+        #     event
+        # )
 

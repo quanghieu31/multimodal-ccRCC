@@ -49,7 +49,7 @@ def baseline_clinical():
     # evaluate the model on test data
     pred_risk = clinical_coxph.predict_partial_hazard(test.drop(["time", "event"], axis=1))
     c_index = concordance_index(test['time'], -pred_risk, test['event'])
-    print("Concordance index for clinical baseline model on test data:", c_index)
+    print("c-index for clinical model on test data:", c_index)
 
     # plot the Kaplan-Meier curve for the predicted hazard scores based on median risk indices
     fig, ax = plt.subplots(figsize=(10,8))
@@ -138,7 +138,7 @@ if __name__ == "__main__":
     c_index_baseline_rna_seq = baseline_rna_seq()
 
     c_index_results = pd.DataFrame({
-            "baseline_unimodal": ["clinical", "rna-seq"],
+            "model": ["baseline_clinical", "baseline_rna-seq"],
             "c-index": [c_index_baseline_clinical, c_index_baseline_rna_seq]
         }
     )
