@@ -5,3 +5,6 @@ notebooks/__pycache__
 notebooks/explore.ipynb
 notes.txt
 checkpoints/
+examples/available_fields_for_cases.txt
+examples/available_fields_for_files.txt
+examples/example1.png
