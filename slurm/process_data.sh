@@ -12,6 +12,9 @@
 #SBATCH --cpus-per-task=16
 #SBATCH --mem-per-cpu=900
 #SBATCH --exclusive
+#SBATCH --time=1-00:00:00
+
+conda activate multimodal-ccRCC
 
 python scripts/download_rna_seq.py
 python scripts/process_rna_seq.py
