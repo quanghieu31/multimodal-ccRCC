@@ -11,6 +11,8 @@ from lifelines.utils import concordance_index
 from utils import display_km_curves_fusion
 
 from models import *
+from train import test_loader
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 ############################# FINAL ###########################################
@@ -32,6 +34,7 @@ model_chkpt.eval()
 test_risks = []
 test_times = []
 test_events = []
+
 
 with torch.no_grad():
     for batch in tqdm(test_loader):

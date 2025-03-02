@@ -14,7 +14,7 @@ np.random.seed(0)
 torch.manual_seed(0)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
+dropout_ratio = 0.5
 
 class WSI_FCN(nn.Module):
     """
@@ -54,7 +54,6 @@ class WSI_FCN(nn.Module):
         return x # (1, 64)
 
 
-
 class WSI_Attention(nn.Module):
     """
     https://arxiv.org/abs/2009.11169 
@@ -83,10 +82,8 @@ class WSI_Attention(nn.Module):
         return weights_applied, att_weights
 
 
-
-# Clinical_RNA_FeedForward()
 class Clinical_RNA_FeedForward(nn.Module):
-    def __init__(self, input_dim, output_dim=32, dropout_ratio=0.5):
+    def __init__(self, input_dim, output_dim=32, dropout_ratio=dropout_ratio):
         # https://www.cs.toronto.edu/~hinton/absps/JMLRdropout.pdf
         # https://arxiv.org/pdf/1207.0580
         # For fully connected layers, dropout in all hidden layers works
@@ -126,7 +123,6 @@ class Clinical_RNA_FeedForward(nn.Module):
         return out
 
 
-
 # FusionFeedForward
 class FusionNetwork(nn.Module):
     def __init__(self, 
@@ -139,7 +135,7 @@ class FusionNetwork(nn.Module):
         super(FusionNetwork, self).__init__()
 
         # Clinical+RNA
-        self.clinical_rna_feedforward = Clinical_RNA_FeedForward(input_dim_clinical_rna, output_dim=32, dropout_ratio=0.5)
+        self.clinical_rna_feedforward = Clinical_RNA_FeedForward(input_dim_clinical_rna, output_dim=32, dropout_ratio=dropout_ratio)
         # WSI_FCN and WSI_Attention
         self.wsi_fcn = WSI_FCN(input_dim_wsi_fcn, out_features=64)
         self.attention = WSI_Attention(input_dim_wsi_attention, out_features=64)

@@ -67,19 +67,22 @@ def negative_partial_log_likelihood(hazard_preds, times, events, device, eps=1e-
 # one_batch_loss = negative_partial_log_likelihood(hazard_pred, time, event, device)
 # print(one_batch_loss)
 
-
 ################## HYPERPARAMS ################################################
 
-n_epochs = 3
-lr = 0.001
+# BEST OF NOW: March 1, 2025
+# https://arxiv.org/pdf/1206.5533 (guide to choose hyperparams)
+n_epochs = 5
+lr = 0.0001
 batch_size = 32
+
+# regularizations:
 dropout_ratio = 0.5
-weight_decay = 0.01
+weight_decay = 0.0001
+
 # since we have relatively small dataset (~300 for training), high weidght decay may lead to udnerfitting
 # but we might have many interactions between parameters in the final feedforward, so let's try different ones
 # https://medium.com/towards-data-science/this-thing-called-weight-decay-a7cd4bcfccab
 # https://stackoverflow.com/questions/44452571/what-is-the-proper-way-to-weight-decay-for-adam-optimizer
-
 
 ################### TRAIN #####################################################
 
@@ -135,84 +138,88 @@ model.to(device)
 optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
 
 
-print("begin to train")
-# training loops
-for epoch in range(n_epochs):
+def train():
+    print("begin to train")
+    # training loops
+    for epoch in range(n_epochs):
 
-    model.train()
-    train_loss = 0.0 
+        model.train()
+        train_loss = 0.0 
 
-    # each batch contains 32 cases!
-    for batch in tqdm(train_loader):
-        batch_clinical_rna_features, batch_lists_phenotype_clusters, batch_times, batch_events = batch
+        # each batch contains 32 cases!
+        for batch in tqdm(train_loader):
+            batch_clinical_rna_features, batch_lists_phenotype_clusters, batch_times, batch_events = batch
 
-        risk_scores = [] # list of  32 risk scores
-        for (clinical_rna_features, list_of_phenotype_tensors) in zip(batch_clinical_rna_features, batch_lists_phenotype_clusters):
-            # process each sample in the batch of 32
-            risk_score = model(clinical_rna_features, list_of_phenotype_tensors)
-            risk_scores.append(risk_score)
+            risk_scores = [] # list of  32 risk scores
+            for (clinical_rna_features, list_of_phenotype_tensors) in zip(batch_clinical_rna_features, batch_lists_phenotype_clusters):
+                # process each sample in the batch of 32
+                risk_score = model(clinical_rna_features, list_of_phenotype_tensors)
+                risk_scores.append(risk_score)
 
-        # convert to tensor type
-        risk_scores = torch.stack(risk_scores) # of shape (batch_size, 1) or (32,1) 
+            # convert to tensor type
+            risk_scores = torch.stack(risk_scores) # of shape (batch_size, 1) or (32,1) 
 
-        # TODO: explain in detail: meaning of loss of 32 cases in the batch
-        optimizer.zero_grad() # zero the parameter gradients
-        loss = negative_partial_log_likelihood(risk_scores, batch_times.to(device), batch_events.to(device), device)
-        loss.backward()
-        optimizer.step()
+            # TODO: explain in detail: meaning of loss of 32 cases in the batch
+            optimizer.zero_grad() # zero the parameter gradients
+            loss = negative_partial_log_likelihood(risk_scores, batch_times.to(device), batch_events.to(device), device)
+            loss.backward()
+            optimizer.step()
 
-        train_loss += loss.item()
+            train_loss += loss.item()
 
-    print(f"epoch {epoch}, loss: {train_loss / len(train_loader)}")
+        print(f"epoch {epoch}, loss: {train_loss / len(train_loader)}")
 
-print("finished training\n")
+    print("finished training\n")
 
 
+    ####################### VALIDATION ############################################
 
-####################### VALIDATION ############################################
+    print("begin to validate")
+    model.eval()
 
-print("begin to validate")
-model.eval()
+    val_risks = []
+    val_times = []
+    val_events = []
 
-val_risks = []
-val_times = []
-val_events = []
-
-with torch.no_grad():
-    for batch in tqdm(val_loader):
-        # unpack the batch
-        batch_clinical_rna_features, batch_lists_phenotype_clusters, batch_times, batch_events = batch
-        
-        # move times and events to the device
-        batch_times = batch_times.to(device)
-        batch_events = batch_events.to(device)
-        
-        # tterate over each sample in the batch
-        for i, (clinical_rna_features, list_of_phenotype_tensors) in enumerate(zip(batch_clinical_rna_features, batch_lists_phenotype_clusters)):
+    with torch.no_grad():
+        for batch in tqdm(val_loader):
+            # unpack the batch
+            batch_clinical_rna_features, batch_lists_phenotype_clusters, batch_times, batch_events = batch
             
-            risk_score = model(clinical_rna_features, list_of_phenotype_tensors)
+            # move times and events to the device
+            batch_times = batch_times.to(device)
+            batch_events = batch_events.to(device)
             
-            val_risks.append(risk_score.item())
-            val_times.append(batch_times[i].item())
-            val_events.append(batch_events[i].item())
+            # tterate over each sample in the batch
+            for idx, (clinical_rna_features, list_of_phenotype_tensors) in enumerate(zip(batch_clinical_rna_features, batch_lists_phenotype_clusters)):
+                
+                risk_score = model(clinical_rna_features, list_of_phenotype_tensors)
+                
+                val_risks.append(risk_score.item())
+                val_times.append(batch_times[idx].item())
+                val_events.append(batch_events[idx].item())
 
-val_c_index = concordance_index(val_times, -val_risks, val_events)
-print(f"validation c-index: {val_c_index}\n")
-display_km_curves_fusion(val_risks, val_times, val_events, "validation set", save_figure=True)
+    val_c_index = concordance_index(val_times, -np.array(val_risks), val_events)
+    print(f"validation c-index: {val_c_index}")
 
-saved_model = True
-if saved_model:
-    current_time = datetime.now().strftime("%H-%M-%S")
-    checkpoint_path = f"checkpoints/trained-model_{date.today()}_{current_time}.pth"
-    torch.save({
-        'model_state_dict': model.state_dict(), # all weights all models
-        'optimizer_state_dict': optimizer.state_dict(),
-        'batch_size': batch_size,
-        'dropout_ratio': dropout_ratio,
-        'learning_rate': lr,
-        'weight_decay': weight_decay,
-        'n_epochs': n_epochs,
-        'random_seed': 0,
-        'val_c_index': val_c_index
-    }, checkpoint_path)
-    print(f"saved model: {checkpoint_path}")
+    display_km_curves_fusion(val_risks, val_times, val_events, "validation set", save_figure=True)
+
+    saved_model = True
+    if saved_model:
+        checkpoint_path = f"checkpoints/trained-model_{date.today()}_{val_c_index:4f}.pth"
+        torch.save({
+            'model_state_dict': model.state_dict(), # all weights all models
+            'optimizer_state_dict': optimizer.state_dict(),
+            'batch_size': batch_size,
+            'dropout_ratio': dropout_ratio,
+            'learning_rate': lr,
+            'weight_decay': weight_decay,
+            'n_epochs': n_epochs,
+            'random_seed': 0,
+            'val_c_index': val_c_index
+        }, checkpoint_path)
+        print(f"saved model: {checkpoint_path}")
+
+
+if __name__ == "__main__":
+    train()

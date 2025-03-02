@@ -33,6 +33,7 @@ from torchvision import transforms
 import matplotlib.patches as patches
 import math
 from sklearn.cluster import KMeans
+from lifelines import KaplanMeierFitter
 
 
 
@@ -48,9 +49,7 @@ def filter_267_subjects(df):
     print(df["event"].value_counts())
     output_clinical_cleaned_267 = config["clinical"]["cleaned_clinical_267"]
     df.to_csv(output_clinical_cleaned_267, index=False)
-filter_267_subjects(pd.read_csv(clinical_path))
-
-
+# filter_267_subjects(pd.read_csv(clinical_path))
 
 
 
@@ -305,5 +304,33 @@ def display_km_curves(pred_risk, title_name, save_figure=False):
     plt.legend()
     if save_figure:
         plt.savefig("evaluation-results/clinical-baseline.png")
+    else:
+        plt.show()
+
+
+def display_km_curves_fusion(risks, times, events, title_name, save_figure=False):
+    risks = np.array(risks)
+    times = np.array(times)
+    events = np.array(events)
+
+    fig, ax = plt.subplots(figsize=(10, 8)) 
+    
+    high_risk_idx = risks > np.median(risks)
+    low_risk_idx = risks <= np.median(risks)
+    kmf_high = KaplanMeierFitter()
+    kmf_low = KaplanMeierFitter()
+    # fit low risk
+    kmf_low.fit(times[low_risk_idx], event_observed=events[low_risk_idx], label='Low risk')
+    kmf_low.plot_survival_function(ax=ax, ci_show=True)
+
+    # fit high risk
+    kmf_high.fit(times[high_risk_idx], event_observed=events[high_risk_idx], label='High risk')
+    kmf_high.plot_survival_function(ax=ax, ci_show=True)
+    ax.set_title(f"Kaplan-Meier curve for final model on {title_name}")
+    ax.set_xlabel("Time")
+    ax.set_ylabel("Survival probability")
+    plt.legend()
+    if save_figure:
+        plt.savefig(f"evaluation-results/{title_name}-baseline.png")
     else:
         plt.show()

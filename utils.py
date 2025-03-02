@@ -3,6 +3,7 @@ from lifelines import KaplanMeierFitter
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+from datetime import datetime, date
 
 
 def display_km_curves(test_df, pred_risk, title_name, save_figure=False):
@@ -13,8 +14,8 @@ def display_km_curves(test_df, pred_risk, title_name, save_figure=False):
     low_risk_idx = pred_risk <= np.median(pred_risk)
     kmf_high.fit(test_df['time'][high_risk_idx], test_df['event'][high_risk_idx], label="High risk")
     kmf_low.fit(test_df['time'][low_risk_idx], test_df['event'][low_risk_idx], label="Low risk")
-    kmf_high.plot(ax=ax, ci_show=True, show_censors=True)
-    kmf_low.plot(ax=ax, ci_show=True, show_censors=True)
+    kmf_high.plot_survival_function(ax=ax, ci_alpha=0.15, ci_show=True,show_censors=True, color='blue')
+    kmf_low.plot_survival_function(ax=ax, ci_show=True, ci_alpha=0.15, show_censors=True, color='orange')
 
     ax.set_title(f"Kaplan-Meier curve for {title_name} baseline model")
     ax.set_xlabel("Time")
@@ -32,24 +33,23 @@ def display_km_curves_fusion(risks, times, events, title_name, save_figure=False
     events = np.array(events)
 
     fig, ax = plt.subplots(figsize=(10, 8)) 
-    
     high_risk_idx = risks > np.median(risks)
     low_risk_idx = risks <= np.median(risks)
     kmf_high = KaplanMeierFitter()
     kmf_low = KaplanMeierFitter()
     # fit low risk
     kmf_low.fit(times[low_risk_idx], event_observed=events[low_risk_idx], label='Low risk')
-    kmf_low.plot_survival_function(ax=ax, ci_show=True)
-
+    kmf_low.plot_survival_function(ax=ax, ci_show=True, ci_alpha=0.15, show_censors=True, color='orange')
     # fit high risk
     kmf_high.fit(times[high_risk_idx], event_observed=events[high_risk_idx], label='High risk')
-    kmf_high.plot_survival_function(ax=ax, ci_show=True)
+    kmf_high.plot_survival_function(ax=ax, ci_alpha=0.15, ci_show=True,show_censors=True, color='blue')
+    
     ax.set_title(f"Kaplan-Meier curve for final model on {title_name}")
     ax.set_xlabel("Time")
     ax.set_ylabel("Survival probability")
     plt.legend()
     if save_figure:
-        plt.savefig(f"evaluation-results/{title_name}-baseline.png")
+        plt.savefig(f"evaluation-results/fusion_{title_name}_{date.today()}.png")
     else:
         plt.show()
 
