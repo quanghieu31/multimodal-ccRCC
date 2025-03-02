@@ -1,11 +1,7 @@
 config.ini
-
-log/
-
+__pycache__
 scripts/__pycache__
 notebooks/__pycache__
-__pycache__
-
 notebooks/explore.ipynb
-
 notes.txt
+checkpoints/
