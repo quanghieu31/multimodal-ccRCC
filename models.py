@@ -92,30 +92,24 @@ class Clinical_RNA_FeedForward(nn.Module):
         
         super(Clinical_RNA_FeedForward, self).__init__()
 
-        hidden = [512, 256, 256, 64, 64, 32]
+        # hidden = [512, 256, 256, 64, 64, 32]
+        # hidden = [1024, 512, 512, 256, 256, 128, 128, 64, 64, 32]
+
+        hidden = [1024, 1024, 512, 512, 256, 256, 128, 128, 64, 64, 32] # final: march 2, 2025
 
         self.feedforward = nn.Sequential(
-            nn.Linear(input_dim, hidden[0]),
-            nn.ReLU(),
-            nn.Dropout(dropout_ratio),
-            nn.Linear(hidden[0], hidden[1]),
-            nn.ReLU(),
-            nn.Dropout(dropout_ratio),
-            nn.Linear(hidden[1], hidden[2]),
-            nn.ReLU(),
-            nn.Dropout(dropout_ratio),
-            nn.Linear(hidden[2], hidden[3]),
-            nn.ReLU(),
-            nn.Dropout(dropout_ratio),
-            nn.Linear(hidden[3], hidden[4]),
-            nn.ReLU(),
-            nn.Dropout(dropout_ratio),   
-            nn.Linear(hidden[4], hidden[5]),
-            nn.ReLU(),
-            nn.Dropout(dropout_ratio),      
-            nn.Linear(hidden[5], output_dim),
-            nn.ReLU(),
-            nn.Dropout(dropout_ratio),    
+            nn.Linear(input_dim, hidden[0]), nn.ReLU(), nn.Dropout(dropout_ratio),
+            nn.Linear(hidden[0], hidden[1]), nn.ReLU(), nn.Dropout(dropout_ratio),
+            nn.Linear(hidden[1], hidden[2]), nn.ReLU(), nn.Dropout(dropout_ratio),  
+            nn.Linear(hidden[2], hidden[3]), nn.ReLU(), nn.Dropout(dropout_ratio),
+            nn.Linear(hidden[3], hidden[4]), nn.ReLU(), nn.Dropout(dropout_ratio),
+            nn.Linear(hidden[4], hidden[5]), nn.ReLU(), nn.Dropout(dropout_ratio),
+            nn.Linear(hidden[5], hidden[6]), nn.ReLU(), nn.Dropout(dropout_ratio),
+            nn.Linear(hidden[6], hidden[7]), nn.ReLU(), nn.Dropout(dropout_ratio),
+            nn.Linear(hidden[7], hidden[8]), nn.ReLU(), nn.Dropout(dropout_ratio),
+            nn.Linear(hidden[8], hidden[9]), nn.ReLU(), nn.Dropout(dropout_ratio),
+            nn.Linear(hidden[9], hidden[10]), nn.ReLU(), nn.Dropout(dropout_ratio),
+            nn.Linear(hidden[10], output_dim), nn.ReLU(), nn.Dropout(dropout_ratio),    
         )
 
     def forward(self, x):
