@@ -1,9 +1,11 @@
 from sklearn.decomposition import PCA
 from lifelines import KaplanMeierFitter
+from lifelines.utils import concordance_index
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from datetime import datetime, date
+import random
 
 
 def display_km_curves(test_df, pred_risk, title_name, save_figure=False):
@@ -54,7 +56,7 @@ def display_km_curves_fusion(risks, times, events, title_name, save_figure=False
         plt.show()
 
 
-def concordance_index(hazards, times, events):
+def concordance_index_custom(hazards, times, events):
     """
     computes the c-index for survival prediction
     - hazards: predicted risk scores (higher means higher risk)
@@ -74,3 +76,23 @@ def concordance_index(hazards, times, events):
                 elif hazards[i] == hazards[j]:
                     concordant += 0.5
     return concordant / permissible if permissible > 0 else 0
+
+
+
+def bootstrap_c_index(times, risks, events, n_bootstrap=300): # TODO: to choose
+    random.seed(0)
+    np.random.seed(0)
+    
+    indices = np.arange(len(times))
+    bootstrap_scores = []
+
+    for _ in range(n_bootstrap):
+        # sample with replacement
+        sample_indices = np.random.choice(indices, size=len(indices), replace=True)
+        boot_times = np.array(times)[sample_indices]
+        boot_risks = np.array(risks)[sample_indices]
+        boot_events = np.array(events)[sample_indices]
+        score = concordance_index(boot_times, -boot_risks, boot_events)
+        bootstrap_scores.append(score)
+
+    return np.mean(bootstrap_scores), np.std(bootstrap_scores)

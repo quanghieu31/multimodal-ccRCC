@@ -69,9 +69,9 @@ def negative_partial_log_likelihood(hazard_preds, times, events, device, eps=1e-
 
 ################## HYPERPARAMS ################################################
 
-# BEST OF NOW: March 1, 2025
+# BEST OF NOW: March 4, 2025
 # https://arxiv.org/pdf/1206.5533 (guide to choose hyperparams)
-n_epochs = 10
+n_epochs = 5
 lr = 0.0001
 batch_size = 32
 

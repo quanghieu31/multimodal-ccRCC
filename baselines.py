@@ -14,7 +14,8 @@ import os
 import matplotlib.pyplot as plt
 from sklearn.decomposition import PCA
 from sklearn.model_selection import train_test_split
-from utils import display_km_curves
+from utils import display_km_curves, bootstrap_c_index
+import csv
 
 import configparser
 config = configparser.ConfigParser()
@@ -48,7 +49,10 @@ def baseline_clinical():
 
     # evaluate the model on test data
     pred_risk = clinical_coxph.predict_partial_hazard(test.drop(["time", "event"], axis=1))
-    c_index = concordance_index(test['time'], -pred_risk, test['event'])
+
+    # c-index
+    c_index, std = bootstrap_c_index(test['time'], pred_risk, test['event'])
+    # c_index = concordance_index(test['time'], -pred_risk, test['event'])
     print("c-index for clinical model on test data:", c_index)
 
     # plot the Kaplan-Meier curve for the predicted hazard scores based on median risk indices
@@ -59,8 +63,8 @@ def baseline_clinical():
     low_risk_idx = pred_risk <= np.median(pred_risk)
     kmf_high.fit(test['time'][high_risk_idx], test['event'][high_risk_idx], label="High risk")
     kmf_low.fit(test['time'][low_risk_idx], test['event'][low_risk_idx], label="Low risk")
-    kmf_high.plot(ax=ax, ci_show=True, show_censors=True)
-    kmf_low.plot(ax=ax, ci_show=True, show_censors=True)
+    kmf_high.plot_survival_function(ax=ax, ci_alpha=0.15, ci_show=True,show_censors=True, color='blue')
+    kmf_low.plot_survival_function(ax=ax, ci_show=True, ci_alpha=0.15, show_censors=True, color='orange')
 
     ax.set_title("Kaplan-Meier curve for clinical baseline model")
     ax.set_xlabel("Time")
@@ -69,7 +73,7 @@ def baseline_clinical():
     plt.savefig("evaluation-results/clinical-baseline.png")
     print()
 
-    return c_index
+    return c_index, std
 
 
 
@@ -111,13 +115,16 @@ def baseline_rna_seq():
     print(f"train c-index:", coxph.concordance_index_)
 
     pred_risk = coxph.predict_partial_hazard(test.drop(["time", "event"], axis=1))
-    test_c_index = concordance_index(test['time'], -pred_risk, test['event'])
+
+    # c_index
+    # test_c_index = concordance_index(test['time'], -pred_risk, test['event'])
+    test_c_index, std = bootstrap_c_index(test['time'], pred_risk, test['event'])
     print("test c-index:", test_c_index)
     print()
 
     display_km_curves(test, pred_risk, "RNA-seq", save_figure=True)
 
-    return test_c_index
+    return test_c_index, std
 
 
 
@@ -134,13 +141,18 @@ def baseline_wsi():
 
 if __name__ == "__main__":
     
-    c_index_baseline_clinical = baseline_clinical()
-    c_index_baseline_rna_seq = baseline_rna_seq()
+    c_index_clinical, std_clinical = baseline_clinical()
+    c_index_rna_seq, std_rna_seq = baseline_rna_seq()
 
-    c_index_results = pd.DataFrame({
-            "model": ["baseline_clinical", "baseline_rna-seq"],
-            "c-index": [c_index_baseline_clinical, c_index_baseline_rna_seq]
-        }
-    )
+    with open("evaluation-results/c-index-results.csv", "a", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=["model", "c-index"])
 
-    c_index_results.to_csv("evaluation-results/c-index-results.csv", index=False)
+        writer.writerow({
+            "model": "baseline_clinical", 
+            "c-index": f"{c_index_clinical} ({std_clinical})"
+        })
+        
+        writer.writerow({
+            "model": "baseline_rna-seq", 
+            "c-index": f"{c_index_rna_seq} ({std_rna_seq})"
+        })

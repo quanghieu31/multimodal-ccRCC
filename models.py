@@ -19,7 +19,7 @@ dropout_ratio = 0.5
 class WSI_FCN(nn.Module):
     """
     https://arxiv.org/abs/2009.11169
-    fully convolutional network for WSI
+    fully convolutional/connected network for WSI (2 experiments)
     takes 1 phenotype tensor/cluster of shape (1, n_patches, 512)
     outputs a local representation of that phenotype tensor of shape (1, 64)
     why FCN? on the numerical vectors? 
@@ -27,31 +27,58 @@ class WSI_FCN(nn.Module):
         - so why not a simple fully connected network (MLP)? it's because it requires inputs with fixed dimension and we have varying number of patches for each cluster
     also, note that a patch -> FCN -> (1,64) shape. So if we have 300 patches or (300,64) shape, we would use avgpooling and get (1,64) as the final output for that cluster
     """
-    def __init__(self, in_features, out_features=64):
+    def __init__(self, mode, in_features, out_features=64):
         super(WSI_FCN, self).__init__()
-        # conv1d because we only have a tensor of shape (N, C, L) = (1, 512, i.e. 272)
-        self.conv = nn.Conv1d(in_features, out_features, 
-            kernel_size=1 # kernel size = 1 is extremely important because we only want to the a single patch to be learned, 
-            # doing i.e. 3x3 is no use because the patches are picked randomly, so can't use spatial relationship here
+
+        self.mode = mode
+
+        # Experiment 1: (closed March 4)
+        self.conv = nn.Sequential(
+            # conv1d because we only have a tensor of shape (N, C, L) = (1, 512, i.e. 272)
+            nn.Conv1d(
+                in_features, 
+                out_features, 
+                kernel_size=1 # kernel size = 1 is extremely important because we only want to the a single patch to be learned, 
+                # doing i.e. 3x3 is no use because the patches are picked randomly, so can't use spatial relationship here
+            ),
+            nn.ReLU(),
+            # adaptive avg pooling to get a local representation of the phenotype tensor
+            # NOTE: adapative pooling from (64, 300 patches) to (64,1) as the final output of that cluster
+            nn.AdaptiveAvgPool1d(1)
         )
-        self.relu = nn.ReLU()
-        # adaptive avg pooling to get a local representation of the phenotype tensor
-        # NOTE: adapative pooling from (64, 300 patches) to (64,1) as the final output of that cluster
-        self.pool = nn.AdaptiveAvgPool1d(1)
+
+        # Experiment 2: (start March 4)
+        self.linear = nn.Sequential(
+            # https://stackoverflow.com/a/58591606/19562762
+            nn.Linear(in_features, 256),
+            nn.ReLU(),
+            nn.Dropout(0.3), # NOTE tuning
+            nn.Linear(256, 128),
+            nn.ReLU(),
+            nn.Dropout(0.3), # NOTE tuning
+            nn.Linear(128, out_features),
+        )
 
     def forward(self, x):
-        # x: (1, n_patches, n_features)
-        # permute to (1, n_features, n_patches) so that n_features become channels why? because tensor in pytorch reads () https://stackoverflow.com/questions/51541532/which-part-of-pytorch-tensor-represents-channels
-        # n_patches is the length of the sequence. why?
-        # FYI: for a conv2D, input should be in (N, C, H, W) format. N is the number of samples/batch_size. C is the channels. H and W are height and width resp: https://pytorch.org/docs/stable/generated/torch.nn.Conv2d.html#torch.nn.Conv2d 
-        # but here we have conv1d: https://pytorch.org/docs/stable/generated/torch.nn.Conv1d.html#torch.nn.Conv1d
+        # input x: (1, n_patches, n_features)
 
-        x = x.permute(0, 2, 1) # (1, 512, 300 patches)
-        x = self.conv(x) # (1, 64, 300 patches)
-        x = self.relu(x) # (1, 64, 300 patches)
-        x = self.pool(x) # (1, 64, 1)
-        x = x.view(x.size()[0], -1) # (1, 64)
-        return x # (1, 64)
+        if self.mode == "conv":
+            # permute to (1, n_features, n_patches) so that n_features become channels why? because tensor in pytorch reads () https://stackoverflow.com/questions/51541532/which-part-of-pytorch-tensor-represents-channels
+            # n_patches is the length of the sequence. why?
+            # FYI: for a conv2D, input should be in (N, C, H, W) format. N is the number of samples/batch_size. C is the channels. H and W are height and width resp: https://pytorch.org/docs/stable/generated/torch.nn.Conv2d.html#torch.nn.Conv2d 
+            # but here we have conv1d: https://pytorch.org/docs/stable/generated/torch.nn.Conv1d.html#torch.nn.Conv1d
+            x = x.permute(0, 2, 1) # (1, 512, 300 patches)
+            # x = self.conv(x) # (1, 64, 300 patches)
+            # x = self.relu(x) # (1, 64, 300 patches)
+            # x = self.pool(x) # (1, 64, 1)
+            x = self.conv(x)   # (1, 64, 1)
+            x = x.view(x.size()[0], -1) # (1, 64)
+            return x
+
+        elif self.mode == "linear":
+            x = self.linear(x) # (1, 64, 300 patches)
+            x = torch.mean(x, dim=1) # (1,64) average
+            return x # (1, 64)
 
 
 class WSI_Attention(nn.Module):
@@ -73,9 +100,10 @@ class WSI_Attention(nn.Module):
 
     def forward(self, x):
         # apply softmax because we have different number of clusters for each case
-        # x: (5, 64) stack representation of 5 clusters/phenotypes
+        # x: (5, 64) 
+        # stack representation of 5 clusters/phenotypes
         scores = self.attention(x) # (5, 1)
-        att_weights = torch.softmax(scores, dim=0).T # (1,5) which is probabilities
+        att_weights = torch.softmax(scores, dim=0).T # (1,5) which are probabilities
         # weighted sum across the 5 clusters:
         weights_applied = att_weights @ x  # (5, 64) = (1,5) @ (5,64)
         # weighted_sum_vector = torch.sum(weights_applied, dim=0) # (1, 64) or (64)
@@ -131,7 +159,7 @@ class FusionNetwork(nn.Module):
         # Clinical+RNA
         self.clinical_rna_feedforward = Clinical_RNA_FeedForward(input_dim_clinical_rna, output_dim=32, dropout_ratio=dropout_ratio)
         # WSI_FCN and WSI_Attention
-        self.wsi_fcn = WSI_FCN(input_dim_wsi_fcn, out_features=64)
+        self.wsi_fcn = WSI_FCN("linear", input_dim_wsi_fcn, out_features=64) # NOTE
         self.attention = WSI_Attention(input_dim_wsi_attention, out_features=64)
 
         # after fusion:

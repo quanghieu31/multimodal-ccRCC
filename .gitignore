@@ -3,6 +3,7 @@ __pycache__
 scripts/__pycache__
 notebooks/__pycache__
 notebooks/explore.ipynb
+notebooks/draft.ipynb
 notes.txt
 checkpoints/
 examples/available_fields_for_cases.txt
